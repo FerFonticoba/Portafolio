@@ -103,7 +103,7 @@ public class Powers : MonoBehaviourPunCallbacks
     public void InvisibilityInactive()
     {
         //To return the correct material to the player, it is necessary to call the Change Player Skin function
-        //from the skinsManager code where each skin material is saved.
+        //from the skinsManager code (Receive) where each skin material is saved.
         skinsManager.ChangePlayerSkin(skinsManager.SkinSelected);
 
         //Returning the original material of the weapons.

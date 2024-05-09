@@ -1,0 +1,59 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Receive : MonoBehaviour
+{
+    //This skin is the one selected from the game's initial menu, sent and saved to this variable.
+    public int SkinSelected;
+
+    //These two variables save all the parts of the object whose materials will be changed.
+    public GameObject[] HandsObjects, BodyObjects;
+
+    //The different skins available in the game are saved here.
+    public Material[] RedSkin, YellowSkin, PurpleSkin;
+    public List<Material[]> Skins;
+
+    void Start()
+    {
+        //Saving the skin selected in the menu and saving it in the new scene (in the current game).
+        SkinSelected = Send.SkinID;
+
+        Skins = new List<Material[]>
+        {
+            YellowSkin, PurpleSkin, RedSkin
+        };
+
+        //Assigning the selected skin material to the player character.
+        ChangePlayerSkin(SkinSelected);
+    }
+
+    public void ChangePlayerSkin(int skin)
+    {
+        //Changing the material of objects within HandsObjects
+        for (int i = 0; i < HandsObjects.Length; i++)
+        {
+            foreach (Transform child in HandsObjects[i].GetComponentsInChildren<Transform>(true))
+            {
+                if (child.gameObject.GetComponent<Renderer>() != null)
+                {
+                    Material[] skinSeleccionada = Skins[skin];
+                    child.GetComponent<Renderer>().material = skinSeleccionada[i];
+                }
+            }
+        }
+
+        //Changing the material of objects within BodyObjects
+        for (int i = 0; i < BodyObjects.Length; i++)
+        {
+            foreach (Transform child in BodyObjects[i].GetComponentsInChildren<Transform>(true))
+            {
+                if (child.gameObject.GetComponent<Renderer>() != null)
+                {
+                    Material[] skinSeleccionada = Skins[skin];
+                    child.GetComponent<Renderer>().material = skinSeleccionada[i];
+                }
+            }
+        }
+    }
+}
