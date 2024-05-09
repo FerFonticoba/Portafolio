@@ -1,0 +1,146 @@
+using Photon.Pun;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class SpawnManager : MonoBehaviourPunCallbacks
+{
+    public static SpawnManager instance;
+    public Queue<int> spawnQueue = new Queue<int>();
+    private GameObject playerSpawner;
+    public Transform[] spawnPoints;
+    private bool[] spawnPointsOccupied;
+    private int[] spawnPointsOrder;
+    public Transform[] MachinePoints;
+    private int newPlayer;
+    private bool pointsReady;
+
+    private void Awake()
+    {
+        instance = this;
+    }
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        //Initializing the list with the spawn points order for the players in the network.
+        //Im using the array "spawnPoints" that contains the different spawn objects that I will use to get a position and rotation for each player.
+        spawnPointsOrder = new int[spawnPoints.Length];
+
+        if (PhotonNetwork.IsConnected)
+        {
+            //Get the player instance ID
+            newPlayer = PhotonNetwork.LocalPlayer.ActorNumber;
+            print("Player: " + newPlayer);
+
+            //Adding the player to the queue, and sync with all the players on the network.
+            photonView.RPC("PlayerList",RpcTarget.All,newPlayer);
+        }
+
+        //This timer is necessary to give all players time to join the queue.
+        StartCoroutine(InstanceTimer());
+    }
+
+    [PunRPC]
+    public void PlayerList(int myID)
+    {
+        spawnQueue.Enqueue(myID);
+    }
+
+    public IEnumerator InstanceTimer()
+    {
+        print("Timer starting");
+        yield return new WaitForSeconds(2f);
+        print("Timer finished");
+
+        //Checking that there is at least one player in the game (added in the queue).
+        if (spawnQueue.Count > 0)
+        {
+            //Calling the coroutine that generates the spawnPoints of each player and will assign them respectively.
+            StartCoroutine(GenerateSpawnPoint());
+        }
+    }
+
+    public IEnumerator GenerateSpawnPoint()
+    {
+        if (PhotonNetwork.IsMasterClient)
+        {
+            foreach (int playerInGame in spawnQueue)
+            {
+                // Obtener un spawn point aleatorio que no esté ocupado
+                List<int> availableSpawnPoints = new List<int>();
+
+                for (int i = 0; i < spawnPoints.Length; i++)
+                {
+                    if (spawnPointsOccupied[i] == false)
+                    {
+                        availableSpawnPoints.Add(i);
+                    }
+                }
+
+                if (availableSpawnPoints.Count == 0)
+                {
+                    Debug.LogWarning("No hay spawn points disponibles.");
+                }
+                print(availableSpawnPoints.Count);
+                int randomIndex = Random.Range(0, availableSpawnPoints.Count);
+                print(randomIndex);
+                int spawnIndex = availableSpawnPoints[randomIndex];
+
+                photonView.RPC("SpawnPointOccupied", RpcTarget.All, spawnIndex, playerInGame);
+
+                print("numero de jugador = " + playerInGame);
+            }
+        }
+
+        yield return new WaitForSeconds(2f);
+
+        print("points ready true");
+        foreach (int playerInGame in spawnQueue)
+            {
+                print("for each enter");
+                // Comprobar si este PhotonView pertenece al actorNumber dado
+                if (PhotonNetwork.LocalPlayer.ActorNumber == playerInGame)
+                {
+                    playerSpawner = GameObject.FindGameObjectWithTag("PlayerSpawner");
+                    PlayerSpawner pSpawnerScrypt = playerSpawner.GetComponent<PlayerSpawner>();
+
+                    if (pSpawnerScrypt != null)
+                    {
+                        pSpawnerScrypt.spawnPoint = spawnPoints[spawnPointsOrder[playerInGame - 1]];
+                        print("Player is number " + playerInGame + " Spawn Point Order is: " + (playerInGame - 1) + " with a value of:" + spawnPointsOrder[playerInGame - 1] + " and Spaw point is: " + pSpawnerScrypt.spawnPoint);
+
+                        pSpawnerScrypt.SpawnPlayer(1);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("PlayerSpawner script not found on player GameObject.");
+                    }
+                }
+            }
+
+        spawnQueue.Clear();
+    }
+    
+    [PunRPC]
+    public void SpawnPointOccupied(int spawnIndex, int playerinGame)
+    {
+        //If not started, start the array of occupied spawnPoints
+        if (spawnPointsOccupied == null)
+        {
+            spawnPointsOccupied = new bool[spawnPoints.Length];
+
+            for (int i = 0; i < spawnPointsOccupied.Length; i++)
+            {
+                spawnPointsOccupied[i] = false;
+            }
+        }
+
+        //Change the status of the selected spawnPoint to busy.
+        spawnPointsOccupied[spawnIndex] = true;
+
+        //Usa el valor del spawnPointNumber guardado en el transform spawnPoint y guardalo en el array... 
+        //...spawnPointsOrder[el número de jugador en la red (se le resta 1, ya que los jugadores comienzan desde "1", y los arrays desde "0")].
+        spawnPointsOrder[playerinGame - 1] = spawnPoints[spawnIndex].GetComponent<spawnPointCode>().spawPointNumber;
+    }
+}
