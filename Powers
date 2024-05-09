@@ -1,0 +1,131 @@
+using Photon.Pun;
+using UnityEngine;
+
+public class Powers : MonoBehaviourPunCallbacks
+{
+    public Receive skinsManager;
+    public Material[] invisibility;
+    public Material[] invisibilityTwo;
+    public GameObject playerBody, playerHands, weapons;
+    public GameObject[] weaponsRenders;
+    public bool imInvisible;
+    [SerializeField]
+    private float invisibilityTimer, maxTimerTime;
+
+    void Start()
+    {
+        //Starting the timer (this time is how long the player can remain invisible).
+        invisibilityTimer = maxTimerTime;
+    }
+
+    void Update()
+    {
+        if(photonView.IsMine)
+        {
+            //Revisar que el juego no este pausado.
+            if(UIController.instance.pauseIn == false)
+            {
+                //Activating invisibility and sending information to the entire network.
+                if (Input.GetKeyDown(KeyCode.I) && imInvisible == false && invisibilityTimer > 0)
+                {
+                    imInvisible = true;
+                    photonView.RPC("InvisibilityActive", RpcTarget.All);
+                }
+                //Deactivating invisibility and sending information to the entire network.
+                else if (Input.GetKeyDown(KeyCode.I) && imInvisible == true)
+                {
+                    imInvisible = false;
+                    invisibilityTimer = maxTimerTime;
+                    photonView.RPC("InvisibilityInactive", RpcTarget.All);
+                }
+            }
+
+            //Reducing the time available for invisibility once active.
+            if (imInvisible == true && invisibilityTimer > 0)
+            {
+                invisibilityTimer -= Time.deltaTime;
+            }
+            //When you reach zero, deactivate invisibility and send the information to the other players.
+            else if (imInvisible && invisibilityTimer <= 0)
+            {
+                imInvisible = false;
+                photonView.RPC("InvisibilityInactive", RpcTarget.All);
+            }
+
+            //Reset the timer (when you are not invisible) until you reach its maximum value.
+            if (imInvisible == false && invisibilityTimer < maxTimerTime)
+            {
+                invisibilityTimer += Time.deltaTime * 1.5f;
+            }
+        }
+    }
+
+    [PunRPC]
+    public void InvisibilityActive()
+    {
+        //Change the material of each component of the entire character to the invisibility material.
+        foreach (Transform child in playerBody.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.GetComponent<Renderer>() != null)
+            {
+                for (int i = 0; i < child.GetComponent<Renderer>().materials.Length; i++)
+                {
+                    child.GetComponent<Renderer>().materials = invisibility;
+                }
+            }
+        }
+        //Change the material of each component of the arms (what the player sees in first person) with the invisibility material.
+        foreach (Transform child in playerHands.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.GetComponent<Renderer>() != null)
+            {
+                for (int i = 0; i < child.GetComponent<Renderer>().materials.Length; i++)
+                {
+                    child.GetComponent<Renderer>().materials = invisibility;
+                }
+            }
+        }
+        //Change the material of each component of all weapons to the invisibility material.
+        foreach (Transform child in weapons.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.GetComponent<MeshRenderer>() != null && !child.CompareTag("IgnoreMaterial"))
+            {
+                for (int i = 0; i < child.GetComponent<MeshRenderer>().materials.Length; i++)
+                {
+                    MeshRenderer mesh = child.GetComponent<MeshRenderer>();
+                    mesh.materials = invisibilityTwo;
+                }
+            }
+        }
+    }
+
+    [PunRPC]
+    public void InvisibilityInactive()
+    {
+        //To return the correct material to the player, it is necessary to call the Change Player Skin function
+        //from the skinsManager code where each skin material is saved.
+        skinsManager.ChangePlayerSkin(skinsManager.SkinSelected);
+
+        //Returning the original material of the weapons.
+        for (int i = 0; i < weaponsRenders.Length; i++)
+        {
+            //Each weapon can be made up of one, two or even three different materials, so each "if" will check 
+            //what type of material that piece has and will assign the corresponding material.
+            foreach (Transform child in weaponsRenders[i].GetComponentsInChildren<Transform>(true))
+            {
+                if (child.GetComponent<Renderer>() != null && !child.CompareTag("secondaryMaterial") && !child.CompareTag("thirdMaterial") && !child.CompareTag("Mira") && !child.CompareTag("IgnoreMaterial"))
+                {
+                    child.GetComponent<Renderer>().materials = weaponsRenders[i].GetComponent<SkinMaterials>().primaryWeaponMaterial;
+                }
+                else if (child.GetComponent<Renderer>() != null && child.CompareTag("secondaryMaterial"))
+                {
+                    child.GetComponent<Renderer>().materials = weaponsRenders[i].GetComponent<SkinMaterials>().secondaryWeaponMaterial;
+                }
+                else if (child.GetComponent<Renderer>() != null && child.CompareTag("thirdMaterial"))
+                {
+                    child.GetComponent<Renderer>().materials = weaponsRenders[i].GetComponent<SkinMaterials>().thirdWeaponMaterial;
+                }
+            }
+        }
+    }
+}
